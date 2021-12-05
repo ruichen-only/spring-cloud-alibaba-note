@@ -1,3 +1,0 @@
-# MyHeader
-
-> An awesome project.
