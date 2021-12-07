@@ -1,12 +1,10 @@
 ![logo](_image/home.svg)
 
-# docsify <small>3.5</small>
+# Spring Cloud Alibaba 手册
 
-> 一个神奇的文档网站生成器。
+> 学习、实战Spring Cloud Alibaba框架的最全记录
 
-- 简单、轻便 (压缩后 ~21kB)
-- 无需生成 html 文件
-- 众多主题
+- 尝试使用目前最主流的技术栈，包括且不限于MyBatis、RocketMQ、Elasticsearch、Redis等
 
 [GitHub](https://github.com/ruichen-only/spring-cloud-alibaba-note)
 [Get Started](README.md)
