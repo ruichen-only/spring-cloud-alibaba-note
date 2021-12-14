@@ -1,41 +1,76 @@
-# 搭建框架基本骨架
+# 微服务环境搭建
 
-> 基于Spring Boot + MyBatis搭建基本框架
+> 我们本次是使用的电商项目中的商品、订单、用户为案例进行讲解。
 
-## 项目使用框架介绍
+## 案例准备
 
-### SpringBoot
-> SpringBoot可以让你快速构建基于Spring的Web应用程序，内置多种Web容器(如Tomcat)，通过启动入口程序的main函数即可运行。
+### 技术选型
 
-### PagerHelper
+| 工具            | 版本号    | 下载                                                                                   |
+|---------------|--------|--------------------------------------------------------------------------------------|
+| JDK           | 1.8    | https://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html |
+| Mysql         | 5.7    | https://www.mysql.com/                                                               |
+| Redis         | 5.0    | https://redis.io/download                                                            |
+| Elasticsearch | 7.6.2  | https://www.elastic.co/cn/downloads/elasticsearch                                    |
+| Kibana        | 7.6.2  | https://www.elastic.co/cn/downloads/kibana                                           |
+| Logstash      | 7.6.2  | https://www.elastic.co/cn/downloads/logstash                                         |
+| MongoDb       | 4.2.5  | https://www.mongodb.com/download-center                                              |
+| RabbitMq      | 3.7.14 | http://www.rabbitmq.com/download.html                                                |
+| nginx         | 1.10   | http://nginx.org/en/download.html                                                    |
 
-> MyBatis分页插件，简单的几行代码就能实现分页，在与SpringBoot整合时，只要整合了PagerHelper就自动整合了MyBatis。
+### 后端技术
+| 技术                     | 说明            | 官网                                                   |
+|------------------------|---------------|------------------------------------------------------|
+| Spring Cloud           | 微服务框架         | https://spring.io/projects/spring-cloud              |
+| Spring Cloud Alibaba   | 微服务框架         | https://github.com/alibaba/spring-cloud-alibaba      |
+| Spring Boot            | 容器+MVC框架      | https://spring.io/projects/spring-boot               |
+| Spring Security Oauth2 | 认证和授权框架       | https://spring.io/projects/spring-security-oauth     |
+| MyBatis                | ORM框架         | http://www.mybatis.org/mybatis-3/zh/index.html       |
+| MyBatisGenerator       | 数据层代码生成       | http://www.mybatis.org/generator/index.html          |
+| PageHelper             | MyBatis物理分页插件 | http://git.oschina.net/free/Mybatis_PageHelper       |
+| Knife4j                | 文档生产工具        | https://github.com/xiaoymin/swagger-bootstrap-ui     |
+| Elasticsearch          | 搜索引擎          | https://github.com/elastic/elasticsearch             |
+| RabbitMq               | 消息队列          | https://www.rabbitmq.com/                            |
+| Redis                  | 分布式缓存         | https://redis.io/                                    |
+| MongoDb                | NoSql数据库      | https://www.mongodb.com/                             |
+| Docker                 | 应用容器引擎        | https://www.docker.com/                              |
+| Druid                  | 数据库连接池        | https://github.com/alibaba/druid                     |
+| OSS                    | 对象存储          | https://github.com/aliyun/aliyun-oss-java-sdk        |
+| MinIO                  | 对象存储          | https://github.com/minio/minio                       |
+| JWT                    | JWT登录支持       | https://github.com/jwtk/jjwt                         |
+| LogStash               | 日志收集          | https://github.com/logstash/logstash-logback-encoder |
+| Lombok                 | 简化对象封装工具      | https://github.com/rzwitserloot/lombok               |
+| Seata                  | 全局事务管理框架      | https://github.com/seata/seata                       |
+| Portainer              | 可视化Docker容器管理 | https://github.com/portainer/portainer               |
+| Jenkins                | 自动化部署工具       | https://github.com/jenkinsci/jenkins                 |
+| Kubernetes             | 应用容器管理平台      | https://kubernetes.io/                               |
 
+### 模块设计
+``` lua
+spring-cloud-alibaba-practice
+├── shop-common -- 工具类及通用代码模块
+├── shop-mbg -- MyBatisGenerator生成的数据库操作代码模块
+├── shop-auth -- 基于Spring Security Oauth2的统一的认证中心（待更新）
+├── shop-gateway -- 基于Spring Cloud Gateway的微服务API网关服务（待更新）
+├── shop-monitor -- 基于Spring Boot Admin的微服务监控中心（待更新）
+├── shop-user -- 用户微服务
+├── shop-product -- 商品微服务
+├── shop-order -- 订单微服务
+└── config -- 配置中心存储的配置
 ```
-PageHelper.startPage(pageNum, pageSize);
-//之后进行查询操作将自动进行分页
-List<PmsBrand> brandList = brandMapper.selectByExample(new PmsBrandExample());
-//通过构造PageInfo对象获取分页信息，如当前页码，总页数，总条数
-PageInfo<PmsBrand> pageInfo = new PageInfo<PmsBrand>(list);
-```
+![](_image/模块设计.jpg)
 
-### Druid
+### 微服务调用
 
-> alibaba开源的数据库连接池，号称Java语言中最好的数据库连接池。
+> 在微服务架构中，最常见的场景就是微服务之间的相互调用。我们以电商系统中常见的用户下单为例来
+演示微服务的调用：客户向订单微服务发起一个下单的请求，在进行保存订单之前需要调用商品微服务
+查询商品的信息。
+我们一般把服务的主动调用方称为服务消费者，把服务的被调用方称为服务提供者。
 
-### Mybatis generator
+![](_image/微服务调用.jpg)
 
-> MyBatis的代码生成器，可以根据数据库生成model、mapper.xml、mapper接口和Example，通常情况下的单表查询不用再手写mapper。
-
-## 项目搭建
-
-### 使用IDEA初始化一个Maven项目
-
-![Maven项目](_image/springbootbase.jpg)
-
-## 添加项目依赖
-
-> 在pom.xml中添加相关依赖。
+## 创建父工程
+> 创建一个maven工程，然后在pom.xml文件中添加下面内容
 
 ```
 <?xml version="1.0" encoding="UTF-8"?>
@@ -44,23 +79,43 @@ PageInfo<PmsBrand> pageInfo = new PageInfo<PmsBrand>(list);
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.rea</groupId>
-    <artifactId>SpringBootBase</artifactId>
-    <version>1.0-SNAPSHOT</version>
-
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.1.3.RELEASE</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <version>2.3.12.RELEASE</version>
+        <relativePath/>
     </parent>
+    <groupId>com.rea</groupId>
+    <artifactId>practical</artifactId>
+    <packaging>pom</packaging>
+    <version>1.0-SNAPSHOT</version>
+
+    <modules>
+        <module>shop-mbg</module>
+        <module>shop-gateway</module>
+        <module>shop-product</module>
+        <module>shop-user</module>
+        <module>shop-common</module>
+        <module>shop-order</module>
+    </modules>
+
+    <properties>
+        <mbg.version>1.4.0</mbg.version>
+        <mybatis.version>3.5.8</mybatis.version>
+        <spring-cloud.version>Hoxton.SR5</spring-cloud.version>
+        <spring-cloud-alibaba.version>2.2.0.RELEASE</spring-cloud-alibaba.version>
+        <pagehelper-starter.version>1.3.0</pagehelper-starter.version>
+        <pagehelper.version>5.2.0</pagehelper.version>
+        <knife4j.version>2.0.4</knife4j.version>
+        <mybatis-generator.version>1.4.0</mybatis-generator.version>
+        <mybatis.version>3.5.5</mybatis.version>
+        <hutool.version>5.7.17</hutool.version>
+        <druid.version>1.2.8</druid.version>
+        <mysql-connector.version>8.0.20</mysql-connector.version>
+        <spring-data-commons.version>2.3.0.RELEASE</spring-data-commons.version>
+    </properties>
 
     <dependencies>
-        <!--SpringBoot通用依赖模块-->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -70,130 +125,162 @@ PageInfo<PmsBrand> pageInfo = new PageInfo<PmsBrand>(list);
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
         <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <!--MyBatis分页插件-->
         <dependency>
-            <groupId>com.github.pagehelper</groupId>
-            <artifactId>pagehelper-spring-boot-starter</artifactId>
-            <version>1.4.1</version>
-        </dependency>
-        <!--集成druid连接池-->
-        <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>druid-spring-boot-starter</artifactId>
-            <version>1.2.8</version>
-        </dependency>
-        <!-- MyBatis 生成器 -->
-        <dependency>
-            <groupId>org.mybatis.generator</groupId>
-            <artifactId>mybatis-generator-core</artifactId>
-            <version>1.4.0</version>
-        </dependency>
-        <!--Mysql数据库驱动-->
-        <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.25</version>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
         </dependency>
     </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <!--Spring Cloud 相关依赖-->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!--Spring Cloud Alibaba 相关依赖-->
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring-cloud-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.rea</groupId>
+                <artifactId>common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.rea</groupId>
+                <artifactId>mbg</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!--MyBatis分页插件starter-->
+            <dependency>
+                <groupId>com.github.pagehelper</groupId>
+                <artifactId>pagehelper-spring-boot-starter</artifactId>
+                <version>${pagehelper-starter.version}</version>
+            </dependency>
+            <!--MyBatis分页插件-->
+            <dependency>
+                <groupId>com.github.pagehelper</groupId>
+                <artifactId>pagehelper</artifactId>
+                <version>${pagehelper.version}</version>
+            </dependency>
+            <!--集成druid连接池-->
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>druid-spring-boot-starter</artifactId>
+                <version>${druid.version}</version>
+            </dependency>
+            <!--Hutool Java工具包-->
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>${hutool.version}</version>
+            </dependency>
+            <!--Knife4j API文档生产工具-->
+            <dependency>
+                <groupId>com.github.xiaoymin</groupId>
+                <artifactId>knife4j-micro-spring-boot-starter</artifactId>
+                <version>${knife4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.xiaoymin</groupId>
+                <artifactId>knife4j-spring-boot-starter</artifactId>
+                <version>${knife4j.version}</version>
+            </dependency>
+            <!-- MyBatis 生成器 -->
+            <dependency>
+                <groupId>org.mybatis.generator</groupId>
+                <artifactId>mybatis-generator-core</artifactId>
+                <version>${mybatis-generator.version}</version>
+            </dependency>
+            <!-- MyBatis-->
+            <dependency>
+                <groupId>org.mybatis</groupId>
+                <artifactId>mybatis</artifactId>
+                <version>${mybatis.version}</version>
+            </dependency>
+            <!--Mysql数据库驱动-->
+            <dependency>
+                <groupId>mysql</groupId>
+                <artifactId>mysql-connector-java</artifactId>
+                <version>${mysql-connector.version}</version>
+            </dependency>
+            <!--JWT(Json Web Token)登录支持-->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <!--JWT(Json Web Token)登录支持-->
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>nimbus-jose-jwt</artifactId>
+                <version>${nimbus-jose-jwt.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
 </project>
 ```
 
-## 修改配置文件
+## 创建基础模块
+> 创建 shop-common 模块，在pom.xml中添加依赖
 
-> 在application.yml中添加数据源配置和MyBatis的mapper.xml的路径配置。
-
-```yaml
-server:
-  port: 8080
-
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: root
-
-mybatis:
-  mapper-locations:
-    - classpath:mapper/*.xml
-    - classpath*:com/**/mapper/*.xml
 ```
-
-## 项目结构说明
-
-``` lua
-com.rea
-├── common -- 存放共通类，如工具类和通用返回结果
-├── component -- 存放组件
-├── config -- 存放java配置
-├── controller -- 存放控制器
-├── dao -- 存放自定义的mapper接口
-├── dto -- 存放自定义的传输对象，如请求参数和返回结果
-├── mbg
-    ├── mapper 
-    ├── model -- mbg的生成代码 
-    ├── CommentGenerator.class 
-    ├── Generator.class -- mbg代码生成器，运行即可生成代码
-├── service 
-    ├── impl 
-├── XXXApplication -- 项目启动类
-resources
-├── com.rea.mbg.mapper -- mbg生成的mapper.xml文件
-├── mappper -- 自定义的mapper.xml文件
-├── application.yml
-├── generator.properties
-└── generatorConfig.xml -- 控制mbg生成代码的配置文件
-```
-
-## Mybatis generator 配置文件
-
-> 配置数据库连接，Mybatis generator生成model、mapper接口及mapper.xml的路径。
-
-```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE generatorConfiguration
-        PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
-        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>practical</artifactId>
+        <groupId>com.rea</groupId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
 
-<generatorConfiguration>
-    <properties resource="generator.properties"/>
-    <context id="MySqlContext" targetRuntime="MyBatis3" defaultModelType="flat">
-        <property name="beginningDelimiter" value="`"/>
-        <property name="endingDelimiter" value="`"/>
-        <property name="javaFileEncoding" value="UTF-8"/>
-        <!-- 为模型生成序列化方法-->
-        <plugin type="org.mybatis.generator.plugins.SerializablePlugin"/>
-        <!-- 为生成的Java模型创建一个toString方法 -->
-        <plugin type="org.mybatis.generator.plugins.ToStringPlugin"/>
-        <!--可以自定义生成model的代码注释-->
-        <commentGenerator type="com.macro.mall.tiny.mbg.CommentGenerator">
-            <!-- 是否去除自动生成的注释 true：是 ： false:否 -->
-            <property name="suppressAllComments" value="true"/>
-            <property name="suppressDate" value="true"/>
-            <property name="addRemarkComments" value="true"/>
-        </commentGenerator>
-        <!--配置数据库连接-->
-        <jdbcConnection driverClass="${jdbc.driverClass}"
-                        connectionURL="${jdbc.connectionURL}"
-                        userId="${jdbc.userId}"
-                        password="${jdbc.password}">
-            <!--解决mysql驱动升级到8.0后不生成指定数据库代码的问题-->
-            <property name="nullCatalogMeansCurrent" value="true" />
-        </jdbcConnection>
-        <!--指定生成model的路径-->
-        <javaModelGenerator targetPackage="com.macro.mall.tiny.mbg.model" targetProject="mall-tiny-01\src\main\java"/>
-        <!--指定生成mapper.xml的路径-->
-        <sqlMapGenerator targetPackage="com.macro.mall.tiny.mbg.mapper" targetProject="mall-tiny-01\src\main\resources"/>
-        <!--指定生成mapper接口的的路径-->
-        <javaClientGenerator type="XMLMAPPER" targetPackage="com.macro.mall.tiny.mbg.mapper"
-                             targetProject="mall-tiny-01\src\main\java"/>
-        <!--生成全部表tableName设为%-->
-        <table tableName="pms_brand">
-            <generatedKey column="id" sqlStatement="MySql" identity="true"/>
-        </table>
-    </context>
-</generatorConfiguration>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>common</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.github.pagehelper</groupId>
+            <artifactId>pagehelper</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.xiaoymin</groupId>
+            <artifactId>knife4j-micro-spring-boot-starter</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>
 ```
+
+## 创建数据库操作代码模块
+
+### 项目数据库设计
+ **shop**
+ 
+![DB ER视图](_image/DB-ER视图.png)
