@@ -1,6 +1,6 @@
 <!-- docs/_sidebar.md -->
 * [写在前面](README.md)
 - Getting started
-  - [微服务架构介绍](microserver-introduce.md)
-  - [SpringCloud Alibaba介绍](spring-cloud-alibaba-introduce.md)
-  - [搭建基本骨架](env-building.md)
+  - [微服务架构介绍](microserver.md)
+  - [SpringCloud Alibaba介绍](springcloudAlibaba.md)
+  - [搭建基本骨架](architect.md)
