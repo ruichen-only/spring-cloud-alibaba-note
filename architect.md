@@ -685,7 +685,9 @@ public class ProductApplication {
 
 
 ```
+
 ### 创建配置文件
+
 > 在src/mail/resources目录下新建application.yml文件，用于配置DB链接
 
 ```yaml
@@ -828,6 +830,94 @@ INSERT INTO shop_product VALUE(NULL,'OPPO','4000','5000');
 ## 创建订单微服务
 
 ### 创建一个名为 shop-order 的模块,并添加springboot依赖
+
 ```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>practical</artifactId>
+        <groupId>com.rea</groupId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>shop-order</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.rea</groupId>
+            <artifactId>shop-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.rea</groupId>
+            <artifactId>shop-mbg</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.rea</groupId>
+            <artifactId>shop-product</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter</artifactId>
+        </dependency>
+</project>
+```
+
+
+
+### 创建配置文件
+
+> 在src/mail/resources目录下新建application.yml文件，用于配置DB链接
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/shop?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+    druid:
+      initial-size: 5 #连接池初始化大小
+      min-idle: 10 #最小空闲连接数
+      max-active: 20 #最大连接数
+      web-stat-filter:
+        exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*" #不统计这些请求数据
+      stat-view-servlet: #访问监控网页的登录用户名和密码
+        login-username: druid
+        login-password: druid
 
 ```
+> 在src/mail/resources目录下新建bootstrap.yml文件，用于配置项目名称、端口号等
+
+```yaml
+server:
+  port: 8011
+spring:
+  profiles:
+    active: dev
+  application:
+    name: shop-order
+```
+
+### 创建启动类com.rea.order.OrderApplication
+
+```java
+package com.rea.order;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+/**
+ * @author CRR
+ */
+@SpringBootApplication
+public class OrderApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(OrderApplication.class, args);
+    }
+}
+```
+
+> 后续会在后面章节进行远程调用整合：订单服务调用商品服务查询商品信息
