@@ -317,12 +317,227 @@ Sentinel 通过限制资源并发线程的数量，来减少不稳定资源对�
 上限可以通过启动配置项 -Dcsp.sentinel.statistic.max.rt=xxx 来配置。
 
 * **异常比例**：当资源的每秒异常总数占通过量的比值超过阈值之后，资源进入降级状态，即在接下的
-时间窗口（以 s 为单位）之内，对这个方法的调用都会自动地返回。异常比率的阈值范围是
-[0.0,1.0]。
+时间窗口（以 s 为单位）之内，对这个方法的调用都会自动地返回。异常比率的阈值范围是[0.0,1.0]。
 
+* **异常数** ：当资源近 1 分钟的异常数目超过阈值之后会进行服务降级。注意由于统计时间窗口是分
+钟级别的，若时间窗口小于 60s，则结束熔断状态后仍可能再进入熔断状态。
 
+### 热点规则
 
+热点参数流控规则是一种更细粒度的流控规则, 它允许将规则具体到参数上。
 
+暂不考虑热点规则的学习
+
+### 授权规则
+
+很多时候，我们需要根据调用来源来判断该次请求是否允许放行，这时候可以使用 Sentinel 的来源访问
+控制的功能。来源访问控制根据资源的请求来源（origin）限制资源是否通过：
+
+* 若配置白名单，则只有请求来源位于白名单内时才可通过；
+* 若配置黑名单，则请求来源位于黑名单时不通过，其余的请求通过。
+
+### 系统规则
+
+系统保护规则是从应用级别的入口流量进行控制，从单台机器的总体 Load、RT、入口 QPS 、CPU使用
+率和线程数五个维度监控应用数据，让系统尽可能跑在最大吞吐量的同时保证系统整体的稳定性。系统
+保护规则是应用整体维度的，而不是资源维度的，并且仅对入口流量 (进入应用的流量) 生效。
+
+* Load（仅对 Linux/Unix-like 机器生效）：当系统 load1 超过阈值，且系统当前的并发线程数超过系统容量时才会触发系统保护。系统容量由系统的 maxQps * minRt 计算得出。设定参考值一般是 CPU cores * 2.5
+* RT：当单台机器上所有入口流量的平均 RT 达到阈值即触发系统保护，单位是毫秒。
+* 线程数：当单台机器上所有入口流量的并发线程数达到阈值即触发系统保护。
+* 入口 QPS：当单台机器上所有入口流量的 QPS 达到阈值即触发系统保护。
+* CPU使用率：当单台机器上所有入口流量的 CPU使用率达到阈值即触发系统保护
+
+##  @SentinelResource的使用
+
+在定义了资源点之后，我们可以通过Dashboard来设置限流和降级策略来对资源点进行保护。同时还能
+通过@SentinelResource来指定出现异常时的处理策略。
+
+@SentinelResource 用于定义资源，并提供可选的异常处理和 fallback 配置项。其主要参数如下:
+
+| 属性                 | 作用                                                                                                                                                                                                                                     |
+|--------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| value              | 资源名称                                                                                                                                                                                                                                   |
+| entryType          | entry类型，标记流量的方向，取值IN/OUT，默认是OUT                                                                                                                                                                                                        |
+| blockHandler       | 处理BlockException的函数名称,函数要求：<br/>1. 必须是 public<br/>2. 返回类型参数与原方法一致<br/>3. 默认需和原方法在同一个类中。若希望使用其他类的函数，可配置blockHandlerClass ，并指定blockHandlerClass里面的方法。                                                                                    |
+| blockHandlerClass  | 存放blockHandler的类,对应的处理函数必须static修饰。                                                                                                                                                                                                    |
+| fallback           | 用于在抛出异常的时候提供fallback处理逻辑。fallback函数可以针对所有类型的异常（除了exceptionsToIgnore 里面排除掉的异常类型）进行处理。函数要求：<br/>1. 返回类型与原方法一致<br/>2. 参数类型需要和原方法相匹配<br/>3. 默认需和原方法在同一个类中。若希望使用其他类的函数，可配置fallbackClass ，并指定fallbackClass里面的方法。                             |
+| fallbackClass      | 存放fallback的类。对应的处理函数必须static修饰。                                                                                                                                                                                                        |
+| defaultFallback    | 用于通用的 fallback 逻辑。默认fallback函数可以针对所有类型的异常进行处理。若同时配置了 fallback 和 defaultFallback，以fallback为准。函数要求：<br/>1. 返回类型与原方法一致<br/>2. 方法参数列表为空，或者有一个Throwable 类型的参数。<br/>3. 默认需要和原方法在同一个类中。若希望使用其他类的函数，可配置fallbackClass ，并指定 fallbackClass 里面的方法。 |
+| exceptionsToIgnore | 指定排除掉哪些异常。排除的异常不会计入异常统计，也不会进入fallback逻辑，而是原样抛出                                                                                                                                                                                         |
+| exceptionsToTrace  | 需要trace的异常                                                                                                                                                                                                                             |
+
+### 项目整合
+
+1. 在shop-order服务的com.rea.order.controller下新建BlockHandler类
+
+```java
+package com.rea.order.controller;
+
+import com.alibaba.csp.sentinel.slots.block.BlockException;
+import com.alibaba.csp.sentinel.slots.block.degrade.DegradeException;
+import com.alibaba.csp.sentinel.slots.block.flow.FlowException;
+import com.alibaba.fastjson.JSON;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * @author CRR
+ */
+public class BlockHandler {
+    public static String handleException(BlockException be) {
+        Map<String, Object> map = new HashMap<>();
+        if(be instanceof FlowException) {
+            map.put("code", -1);
+            map.put("msg", "系统限流，请稍等");
+        } else if(be instanceof DegradeException) {
+            map.put("code", -2);
+            map.put("msg", "降级了");
+        }
+        return JSON.toJSONString(map);
+    }
+
+    public static String handlerError() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("code", 500);
+        map.put("msg", "系统异常");
+        return JSON.toJSONString(map);
+    }
+}
+```
+
+2. 修改SentinelController类，使用注解@SentinelResource
+
+```java
+package com.rea.order.controller;
+
+import com.alibaba.csp.sentinel.annotation.SentinelResource;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * @author CRR
+ */
+@RestController
+public class SentinelController {
+
+    @GetMapping("/testFlow")
+    @SentinelResource(value = "testFlow",
+            blockHandlerClass = BlockHandler.class,
+            blockHandler = "handleException",
+            fallback = "handlerError",
+            fallbackClass = BlockHandler.class)
+    public String testFlow() {
+        return "testFlow";
+    }
+
+    @GetMapping("/testDegrade")
+    @SentinelResource(value = "testDegrade",
+            blockHandlerClass = BlockHandler.class,
+            blockHandler = "handleException",
+            fallback = "handlerError",
+            fallbackClass = BlockHandler.class)
+    public String testDegrade() {
+        return "testDegrade";
+    }
+}
+```
+
+### 配置流控规则
+
+![](_image/Sentinel新增流控规则5.png)
+> 这里配置的不再是路径，而是注解的value值
+
+浏览器访问：[http://localhost:8011/testFlow](http://localhost:8011/testFlow)，连续刷新多次访问
+![](_image/Sentinel新增流控规则6.png)
+
+降级规则类似
+
+## Sentinel规则持久化
+
+通过前面的讲解，我们已经知道，可以通过Dashboard来为每个Sentinel客户端设置各种各样的规则，
+但是这里有一个问题，就是这些规则默认是存放在内存中，极不稳定，所以需要将其持久化。
+
+这里结合nacos配置持久化规则
+
+1. 修改配置文件bootstrap-dev.yml，sentinel下新建datasource节点，配置信息如下：
+
+```yaml
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        namespace: dfa414fe-6383-45bc-9a31-803a9c475c57
+      config:
+        server-addr: 127.0.0.1:8848
+        namespace: dfa414fe-6383-45bc-9a31-803a9c475c57
+        file-extension: yml   #默认properties
+    sentinel:
+      transport:
+        dashboard: http://localhost:9000 #配置Sentinel dashboard地址
+        port: 8719  #这个端口配置会在应用对应的机器上启动一个Http Server，该Server会与 Sentinel 控制台做交互
+      datasource:
+        flow:
+          nacos:
+            server-addr: http://localhost:8848
+            namespace: dfa414fe-6383-45bc-9a31-803a9c475c57
+            dataId: sentinel-flow-service #nacos中存储规则的dataId
+            data-type: json #配置文件类型
+            rule-type: flow #类型来自RuleType类 - 流控规则
+        degrade:
+          nacos:
+            server-addr: http://localhost:8848
+            namespace: dfa414fe-6383-45bc-9a31-803a9c475c57
+            dataId: sentinel-degrade-service #nacos中存储规则的dataId
+            data-type: json #配置文件类型
+            rule-type: degrade #类型来自RuleType类 - 熔断规则
+dubbo:
+  registry:
+    address: spring-cloud://localhost
+  cloud:
+    subscribed-services: shop-product
+```
+
+2. nacos在配置列表中新建sentinel-degrade-service配置
+
+> 后面会讲到nacos作为配置中心的作用，这里仅做了解
+
+```yaml
+[
+  {
+    "resource": "testDegrade",
+    "grade":   0,
+    "count":   2,
+    "timeWindow": 3,
+    "minRequestAmount": 5,
+    "statIntervalMs": 1000,
+    "slowRatioThreshold":1
+  }
+]
+```
+
+3. nacos在配置列表中新建sentinel-flow-service配置
+
+```yaml
+[
+  {
+    "resource": "testFlow",
+    "limitApp": "default",
+    "grade":   1,
+    "count":   1,
+    "strategy": 0,
+    "controlBehavior": 0,
+    "clusterMode": false
+  }
+]
+```
+
+4. 重新服务，让配置文件生效
+
+浏览器访问：[http://localhost:8011/testFlow](http://localhost:8011/testFlow)，连续刷新多次访问
+![](_image/Sentinel新增流控规则6.png)
 
 
 
