@@ -120,8 +120,202 @@ mvn clean package -Dmaven.test.skip=true
 ```
 
 4. 打包成功后，target目录下会生成rocketmq-console-ng-1.0.0.jar，使用java -jar命令运行这个jar包
-5. 访问rocketmq监控页面[http://localhost:8080](http://localhost:8080)
+
+```shell
+java -jar rocketmq-dashboard-1.0.1-SNAPSHOT.jar
+```
+
+5. 访问rocketmq监控页面[http://localhost:8888](http://localhost:8888)
+
+![](_image/RocketMQ_dashboard.png)
 
 
+## 模拟案例
 
+接下来我们模拟一种场景: 下单成功之后，向下单用户发送短信。设计图如下：
 
+![](_image/RocketMQ_case.png)
+
+### 订单微服务发送消息
+
+1. 在 shop-order 中添加rocketmq的依赖
+
+```xml
+<!--消息队列 RocketMQ 依赖-->
+<dependency>
+    <groupId>org.apache.rocketmq</groupId>
+    <artifactId>rocketmq-spring-boot-starter</artifactId>
+    <version>2.2.0</version>
+</dependency>
+```
+
+2. 在 bootstrap-dev.yml文件中增加配置
+
+```yaml
+rocketmq:
+  name-server: localhost:9876
+  producer: 
+    group: test-group
+```
+
+3. 启动订单微服务
+4. 浏览器中输入：http://localhost:8011/order?pid=1
+
+![](_image/RocketMQ_Provider.png)
+
+5. 消息发送成功后，可以到RocketMQ的控制台中进行查看
+
+![](_image/RocketMQ_Provider1.png)
+![](_image/RocketMQ_Provider2.png)
+![](_image/RocketMQ_Provider3.png)
+
+### 用户微服务订阅消息
+
+1. 在 shop-user 中添加rocketmq的依赖
+
+```xml
+<!--消息队列 RocketMQ 依赖-->
+<dependency>
+    <groupId>org.apache.rocketmq</groupId>
+    <artifactId>rocketmq-spring-boot-starter</artifactId>
+    <version>2.2.0</version>
+</dependency>
+```
+
+2. 在 bootstrap-dev.yml文件中增加配置
+
+```yaml
+rocketmq:
+  name-server: localhost:9876
+  producer: 
+    group: test-group
+```
+
+3. com.rea.user.service.impl包下创建服务类MessageServiceImpl
+
+```java
+package com.rea.user.service.impl;
+
+import com.alibaba.fastjson.JSON;
+import com.rea.mbg.model.ShopOrder;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
+import org.apache.rocketmq.spring.core.RocketMQListener;
+import org.springframework.stereotype.Component;
+
+/**
+ * @author CRR
+ */
+@Slf4j
+@Component
+@RocketMQMessageListener(topic = "order-topic", consumerGroup = "test-group")
+public class MessageServiceImpl implements RocketMQListener<ShopOrder> {
+
+    @Override
+    public void onMessage(ShopOrder shopOrder) {
+        log.info("发送下单邮件成功：" + JSON.toJSONString(shopOrder));
+    }
+}
+
+```
+
+4. 启动user服务
+
+因为之前已经成发送消息，所以在启动时，控制台log中出现消息
+
+![](_image/RocketMQ_Consumer.png)
+
+##  发送不同类型的消息
+
+### 普通消息
+
+RocketMQ提供三种方式来发送普通消息：可靠同步发送、可靠异步发送和单向发送。
+
+**可靠同步发送**
+
+> 同步发送是指消息发送方发出数据后，会在收到接收方发回响应之后才发下一个数据包的通讯方
+式。
+> 此种方式应用场景非常广泛，例如重要通知邮件、报名短信通知、营销短信系统等。
+
+**可靠异步发送**
+
+> 异步发送是指发送方发出数据后，不等接收方发回响应，接着发送下个数据包的通讯方式。发送
+方通过回调接口接收服务器响应，并对响应结果进行处理。
+> 
+> 异步发送一般用于链路耗时较长，对 RT 响应时间较为敏感的业务场景，例如用户视频上传后通知
+启动转码服务，转码完成后通知推送转码结果等。
+
+**单向发送**
+
+> 单向发送是指发送方只负责发送消息，不等待服务器回应且没有回调函数触发，即只发送请求不
+等待应答。
+> 
+> 适用于某些耗时非常短，但对可靠性要求并不高的场景，例如日志收集。
+
+三种发送方式的对比
+
+| 发送方式 | 发送 TPS | 发送结果反馈 | 可靠性 |
+|------|--------|--------|-----|
+| 同步发送 | 快      | 有      | 不丢失 |
+| 异步发送 | 快      | 有      | 不丢失 |
+| 单向发送 | 最快     | 无      | 不丢失 |
+
+### 顺序消息
+
+顺序消息是消息队列提供的一种严格按照顺序来发布和消费的消息类型
+
+![](_image/顺序消息.png)
+
+### 事务消息
+
+RocketMQ提供了事务消息，通过事务消息就能达到分布式事务的最终一致。
+
+**事务消息交互流程:**
+
+![](_image/事务消息.png)
+
+**两个概念:**
+
+半事务消息：暂不能投递的消息，发送方已经成功地将消息发送到了RocketMQ服务端，但是服务端未
+收到生产者对该消息的二次确认，此时该消息被标记成“暂不能投递”状态，处于该种状态下的消息即半
+事务消息。
+
+消息回查：由于网络闪断、生产者应用重启等原因，导致某条事务消息的二次确认丢失，RocketMQ服
+务端通过扫描发现某条消息长期处于“半事务消息”时，需要主动向消息生产者询问该消息的最终状态
+（Commit 或是 Rollback），该询问过程即消息回查。
+
+**事务消息发送步骤：**
+
+1. 发送方将半事务消息发送至RocketMQ服务端。
+2. RocketMQ服务端将消息持久化之后，向发送方返回Ack确认消息已经发送成功，此时消息为半事务消息。
+3. 发送方开始执行本地事务逻辑。
+4. 发送方根据本地事务执行结果向服务端提交二次确认（Commit 或是 Rollback），服务端收到
+   Commit 状态则将半事务消息标记为可投递，订阅方最终将收到该消息；服务端收到 Rollback 状
+   态则删除半事务消息，订阅方将不会接受该消息。
+
+**事务消息回查步骤：**
+
+1. 在断网或者是应用重启的特殊情况下，上述步骤4提交的二次确认最终未到达服务端，经过固定时
+   间后服务端将对该消息发起消息回查。
+2. 发送方收到消息回查后，需要检查对应消息的本地事务执行的最终结果。
+3. 发送方根据检查得到的本地事务的最终状态再次提交二次确认，服务端仍按照步骤4对半事务消息进行操作。
+
+## 消息消费要注意的细节
+
+```java
+@RocketMQMessageListener(
+        consumerGroup = "shop",
+        //消费者分组 
+        topic = "order-topic",
+        //要消费的主题 
+        consumeMode = ConsumeMode.CONCURRENTLY, 
+        //消费模式:无序和有序 
+        messageModel = MessageModel.CLUSTERING
+        //消息模式:广播和集群,默认是集群 
+)
+public class SmsService implements RocketMQListener<Order> {}
+```
+
+RocketMQ支持两种消息模式:
+* **广播消费**: 每个消费者实例都会收到消息,也就是一条消息可以被每个消费者实例处理；
+* **集群消费**: 一条消息只能被一个消费者实例消费
